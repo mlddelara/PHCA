@@ -15,30 +15,83 @@ SR <- 0.8 #Split Ratio Between training and testing
 
 
 ##########################################################################
-## CALLING the IRIS DATA
+## CREATING the SYNTHETIC DATA
 ## This part can be modified depending on which data you want to analyze.
 ##########################################################################
-data(iris)
-dataset <- iris
+##################################################### 
+# uniform sample of points on the circle defined by x^2 + y^2 = r^2 
+##################################################### 
+set.seed(7)
+
+sizen <- 200
+
+circleSample <- circleUnif(n = sizen, r = 5)
+#circleSample$x3 <- matrix(0, 500, 1)
+zerocol <- matrix(2, sizen, 1)
+onescol <- matrix(1, sizen, 1)
+Circle1 <- cbind(circleSample, zerocol, onescol)
+#plot3d(Circle1[,1:3])
+
+########################################################################## 
+# uniform sample on the sphere defined by x^2 + y^2 + z^2 = 1
+##########################################################################
+set.seed(7)
+
+sphereSample <- sphereUnif(n = sizen, d = 2, r = 1)
+#plot3d(sphereSample)
+twoscol <- matrix(2, sizen, 1)
+Sphere2 <- cbind(sphereSample, twoscol)
+Sphere2[,3] <- Sphere2[,3]  + 1
+
+########################################################################## 
+# uniform sample on the torus defined by (3-sqrt(x^2 + y^2))^2 + z^2 = 1
+##########################################################################
+set.seed(7)
+#torusSample <- torusUnif(n = 1.5*sizen, a = 1, c = 3)
+torusSample <- torusUnif(n = sizen, a = 1, c = 3)
+#plot3d(torusSample)
+
+#threescol <- matrix(3, 1.5*sizen, 1)
+threescol <- matrix(3, sizen, 1)
+Torus3 <- cbind(torusSample, threescol)
+Torus3[,3] <- Torus3[,3] - 1
+head(Torus3)
+
+CircleSphereTorus <- rbind(Circle1,Sphere2, Torus3)
+#plot3d(CircleSphereTorus[,1:3])
+
+
+dataset <- data.frame(CircleSphereTorus)
+data <- dataset
+colnames(dataset) <- c("x1", "x2", "x3", "classname")
+
 
 ######################
 # FORMATTING DATASET #
 ######################
+
 XY <- dataset
 nr <- nrow(XY)
 nc <- ncol(XY)
 X <- dataset[-nc] #removes target column
-XY[,nc] <- as.numeric(XY[,nc]) #Turning nonnumeric data to numeric
+XY[,nc] <- as.numeric(XY[,nc])#Turning nonnumeric data to numeric
 
 # Encoding the target feature as factor 
+absmax <- function(x) { x[which.max( abs(x) )]}
+for (f in 1:(nc-1))
+{
+    colabsmax <- abs(absmax(X[,f]))
+    XY[,f] <- (X[,f])*(1/colabsmax)
+}
+
 XY[,nc] = factor(XY[,nc])
 classes <- levels(XY[,nc])
 numclasses <- as.numeric(classes)
 maxclass <- max(numclasses)
 len <- length(numclasses)
 
-#Splitting data into classes
 
+#Splitting data into classes
 trainM <- list()
 testM <- list()
 DiagTr <- list()
@@ -64,17 +117,17 @@ DiagTrcolmean <- MM[1:(nc-1)]
 Featmean <- MM[1:(nc-1)]
 FeatLength <- MM[1:1]
 
-
 #######################
 # PHCA Implementation #
 #######################
+
 for (class in numclasses)
 { 
     M <- filter(XY, XY[,nc] == class)
     print(M)
     
     # Splitting the dataset into the Training set and Test set 
-    #install.packages('caTools')
+    #install.packages('caTools') 
     set.seed(7)
     split = sample.split(M[,nc], SplitRatio = SR)
     training_set = subset(M, split == TRUE)
@@ -133,14 +186,14 @@ newdata
 resulta <- matrix(1:maxclass, nrow=1, byrow=FALSE)
 result <- matrix(1:1, nrow=1, byrow=FALSE)
 
-
 Classifying <- function(M5){
     
     for (j in numclasses) 
     {
+        
         MM <- rbind(trainM[[j]], M5, deparse.level = 0)
         MM
-        #countit <- countit + 1 #Optional
+        #countit <- countit + 1 # Optional
         MMtest <- MM[-nc]
         DiagTe <- ripsDiag(X = MMtest, maxdimension = maxd, maxscale = maxsc,
                            library = "GUDHI", printProgress = FALSE)
@@ -157,19 +210,22 @@ Classifying <- function(M5){
         FF[j,2] <- abs(mean(DiagTe[["diagram"]][,2]) - DiagTrcolmean[j,2])
         FF[j,3] <- abs(mean(DiagTe[["diagram"]][,3]) - DiagTrcolmean[j,3])
         
-        #Lengthsum <- 0
-        #for (i in nrow(DiagTe[["diagram"]])) {
-        #    Lengthsum <- Lengthsum + DiagTe[["diagram"]][i,3] - DiagTe[["diagram"]][i,2]
-        #}
-        #LL[j,1] <- abs(Lengthsum - FeatLength[j,])
-        
         cc <- 0
         for (kk in 1:(nc-1)) {
             GG[j,kk] <- abs(Featmean[j,kk] - M5[1,kk])
             cc <- cc +GG[j,kk]
         }
         
-        DD[j] <- -EE[j,1] + EE[j,3] - FF[j,1] + FF[j,3] + cc + CC[j]
+        #Lengthsum <- 0
+        #for (i in nrow(DiagTe[["diagram"]])) {
+        #    Lengthsum <- Lengthsum + DiagTe[["diagram"]][i,3] - DiagTe[["diagram"]][i,2]
+        #}
+        #LL[j,1] <- abs(Lengthsum - FeatLength[j,])
+        
+        
+        DD[j] <- -EE[j,1] + EE[j,3] - FF[j,1] + FF[j,3]  + cc  + CC[j]
+        
+        
     }
     resulta <- which( DD == min(DD), arr.ind=FALSE)
     
@@ -202,10 +258,7 @@ for (ii in numclasses)
         newdata[Count, nc+1] <- Classifying(testM[[ii]][jj,]) 
     }
 }
-
-
-
-# Results of predicting/classifying the testing set 
+# Predicting the Test set results 
 y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
 
 # Making the Confusion Matrix 
@@ -213,16 +266,17 @@ cm = table(newdata[, nc], y_pred)
 confusionMatrix(cm)
 
 
+#CircleSphereTorus <- rbind(Circle1,Sphere2, Torus3)
+#plot3d(CircleSphereTorus[,1:3])
 
-###################################
-# OTHER CLASSIFICATION ALGORITHMS #
-###################################
 
-data(iris)
-dataset <- iris
+dataset <- data.frame(CircleSphereTorus)
+dataset[,nc] <- as.character(dataset[,nc])
+data <- dataset
+colnames(dataset) <- c("x1", "x2", "x3", "classname")
 
 # create a list of 80% of the rows in the original dataset we can use for training
-validation_index <- createDataPartition(dataset$Species, p=0.80, list=FALSE)
+validation_index <- createDataPartition(dataset$classname , p=SR, list=FALSE)
 # select 20% of the data for validation
 validation <- dataset[-validation_index,]
 # use the remaining 80% of data to training and testing the models
@@ -236,29 +290,31 @@ sapply(dataset, class)
 # take a peek at the first 5 rows of the data
 head(dataset)
 # list the levels for the class
-levels(dataset$Species)
+dataset$classname = factor(dataset$classname)
+levels(dataset$classname)
 
 # summarize the class distribution
-percentage <- prop.table(table(dataset$Species)) * 100
-cbind(freq=table(dataset$Species), percentage=percentage)       
+percentage <- prop.table(table(dataset$classname)) * 100
+cbind(freq=table(dataset$classname), percentage=percentage)       
 
 # summarize attribute distributions
 summary(dataset)       
 
+nc <- ncol(dataset)
 
 # split input and output
-x <- dataset[,1:4]
-y <- dataset[,5]
+x <- dataset[,1:(nc-1)]
+y <- dataset[,nc]
 
 # split input and output
-x <- dataset[,1:4]
-y <- dataset[,5]
+x <- dataset[,1:(nc-1)]
+y <- dataset[,nc]
 
 
 # boxplot for each attribute on one image
-par(mfrow=c(1,4))
-for(i in 1:4) {
-    boxplot(x[,i], main=names(iris)[i])
+par(mfrow=c(1,(nc-1)))
+for(i in 1:(nc-1)) {
+    boxplot(x[,i], main=names(dataset)[i])
 }
 
 #uninteresting
@@ -277,28 +333,28 @@ featurePlot(x=x, y=y, plot="density", scales=scales)
 
 
 # Run algorithms using 10-fold cross validation
-control <- trainControl(method="cv", number=5)
+control <- trainControl(method="cv", number=2)
 metric <- "Accuracy"
 
 #VARIOUS MODELS
 
 # a) linear algorithms
 set.seed(7)
-fit.lda <- train(Species~., data=dataset, method="lda", metric=metric, trControl=control)
+fit.lda <- train(classname~., data=dataset, method="lda", metric=metric, trControl=control)
 # b) nonlinear algorithms
 # CART
 set.seed(7)
-fit.cart <- train(Species~., data=dataset, method="rpart", metric=metric, trControl=control)
+fit.cart <- train(classname~., data=dataset, method="rpart", metric=metric, trControl=control)
 # kNN
 set.seed(7)
-fit.knn <- train(Species~., data=dataset, method="knn", metric=metric, trControl=control)
+fit.knn <- train(classname~., data=dataset, method="knn", metric=metric, trControl=control)
 # c) advanced algorithms
 # SVM
 set.seed(7)
-fit.svm <- train(Species~., data=dataset, method="svmRadial", metric=metric, trControl=control)
+fit.svm <- train(classname~., data=dataset, method="svmRadial", metric=metric, trControl=control)
 # Random Forest
 set.seed(7)
-fit.rf <- train(Species~., data=dataset, method="rf", metric=metric, trControl=control)
+fit.rf <- train(classname~., data=dataset, method="rf", metric=metric, trControl=control)
 
 
 # summarize accuracy of models #Selecting best model
@@ -309,31 +365,32 @@ summary(results)
 # compare accuracy of models
 dotplot(results)
 
-# summarize Best Model
-print(fit.lda)
-
 # estimate skill of LDA on the validation dataset
 predictions <- predict(fit.lda, validation)
-confusionMatrix(predictions, validation$Species)
-
+ypredlda = factor(validation[,nc])
+confusionMatrix(predictions, ypredlda) # validation$classname)
 
 # estimate skill of CART on the validation dataset
 predictions <- predict(fit.cart, validation)
-confusionMatrix(predictions, validation$Species)
+ypredlda = factor(validation[,nc])
+confusionMatrix(predictions, ypredlda) # validation$classname)
 
 # estimate skill of KNN on the validation dataset
 predictions <- predict(fit.knn, validation)
-confusionMatrix(predictions, validation$Species)
-
+ypredlda = factor(validation[,nc])
+confusionMatrix(predictions, ypredlda) # validation$classname)
 
 # estimate skill of SVM on the validation dataset
 predictions <- predict(fit.svm, validation)
-confusionMatrix(predictions, validation$Species)
-
+ypredlda = factor(validation[,nc])
+confusionMatrix(predictions, ypredlda) # validation$classname)
 
 # estimate skill of RF on the validation dataset
 predictions <- predict(fit.rf, validation)
-confusionMatrix(predictions, validation$Species)
+ypredlda = factor(validation[,nc])
+confusionMatrix(predictions, ypredlda) # validation$classname)
+
+
 
 # Predicting the Test set results for PHCA
 y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
