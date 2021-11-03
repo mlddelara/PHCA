@@ -90,7 +90,18 @@ numclasses <- as.numeric(classes)
 maxclass <- max(numclasses)
 len <- length(numclasses)
 
+KofCV <- 5
+CVnum <- matrix(0:KofCV-1, nrow=1, byrow=FALSE)
+CCM <- list()
 
+precision <- matrix(,KofCV,maxclass)
+recall <- matrix(,KofCV,maxclass)
+f1 <- matrix(,KofCV,maxclass)
+MeanPrecision <- matrix(,1,maxclass)
+MeanRecall <- matrix(,1,maxclass)
+MeanF1 <- matrix(,1,maxclass)
+for (CV in 0:(KofCV-1)){
+    
 #Splitting data into classes
 trainM <- list()
 testM <- list()
@@ -125,13 +136,16 @@ for (class in numclasses)
 { 
     M <- filter(XY, XY[,nc] == class)
     print(M)
+
+    for (k in 1:nrow(M))
+    {
+        M[k,nc+1] <- k%%KofCV;
+    }
+    colnames(M)[nc+1] <- c("CVlabel")
     
-    # Splitting the dataset into the Training set and Test set 
-    #install.packages('caTools') 
-    set.seed(7)
-    split = sample.split(M[,nc], SplitRatio = SR)
-    training_set = subset(M, split == TRUE)
-    test_set = subset(M, split == FALSE) 
+    
+    test_set = subset(M, CVlabel == CV)[,-(nc+1)]
+    training_set = subset(M, CVlabel != CV)[,-(nc+1)]
     
     # Optional Feature Scaling, depending on dataset
     #training_set[-nc] = scale(training_set[-nc]) 
@@ -264,6 +278,29 @@ y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
 # Making the Confusion Matrix 
 cm = table(newdata[, nc], y_pred)
 confusionMatrix(cm)
+CCM[[CV+1]] <- cm
+
+####
+# F1 score for multiclass classification problem
+####
+#y <- newdata[, nc] # factor of positive / negative cases
+#predictions <- y_pred # factor of predictions
+
+precision[(CV+1),] <- diag(cm) / colSums(cm)
+recall[(CV+1),] <- diag(cm) / rowSums(cm)
+}
+
+f1 <- ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+
+for (k in 1:maxclass){
+    MeanPrecision[,k] <- mean(precision[,k])
+}
+for (k in 1:maxclass){
+    MeanRecall[,k] <- mean(recall[,k])
+}
+for (k in 1:maxclass){
+    MeanF1[,k] <- mean(f1[,k])
+}
 
 ###################################
 # OTHER CLASSIFICATION ALGORITHMS #
@@ -371,33 +408,37 @@ dotplot(results)
 # estimate skill of LDA on the validation dataset
 predictions <- predict(fit.lda, validation)
 ypredlda = factor(validation[,nc])
-confusionMatrix(predictions, ypredlda) # validation$classname)
+#confusionMatrix(predictions, ypredlda) # validation$classname)
+confusionMatrix(predictions, ypredlda)[4]
 
 # estimate skill of CART on the validation dataset
 predictions <- predict(fit.cart, validation)
 ypredlda = factor(validation[,nc])
-confusionMatrix(predictions, ypredlda) # validation$classname)
+#confusionMatrix(predictions, ypredlda) # validation$classname)
+confusionMatrix(predictions, ypredlda)[4]
 
 # estimate skill of KNN on the validation dataset
 predictions <- predict(fit.knn, validation)
 ypredlda = factor(validation[,nc])
-confusionMatrix(predictions, ypredlda) # validation$classname)
+#confusionMatrix(predictions, ypredlda) # validation$classname)
+confusionMatrix(predictions, ypredlda)[4]
 
 # estimate skill of SVM on the validation dataset
 predictions <- predict(fit.svm, validation)
 ypredlda = factor(validation[,nc])
-confusionMatrix(predictions, ypredlda) # validation$classname)
+#confusionMatrix(predictions, ypredlda) # validation$classname)
+confusionMatrix(predictions, ypredlda)[4]
 
 # estimate skill of RF on the validation dataset
 predictions <- predict(fit.rf, validation)
 ypredlda = factor(validation[,nc])
-confusionMatrix(predictions, ypredlda) # validation$classname)
+#confusionMatrix(predictions, ypredlda) # validation$classname)
+confusionMatrix(predictions, ypredlda)[4]
 
 
-
-# Predicting the Test set results for PHCA
-y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
-
-# Making the Confusion Matrix 
-cm = table(newdata[, nc], y_pred)
-confusionMatrix(cm)
+print(paste("Mean Recall for class", classes,round(100*MeanRecall,2), "%"), sep="")
+print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
+print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
+print(MeanPrecision)
+print(MeanRecall)
+print(MeanF1)

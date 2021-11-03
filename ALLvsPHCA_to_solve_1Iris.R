@@ -37,6 +37,18 @@ numclasses <- as.numeric(classes)
 maxclass <- max(numclasses)
 len <- length(numclasses)
 
+KofCV <- 5
+CVnum <- matrix(0:KofCV-1, nrow=1, byrow=FALSE)
+CCM <- list()
+
+precision <- matrix(,KofCV,maxclass)
+recall <- matrix(,KofCV,maxclass)
+f1 <- matrix(,KofCV,maxclass)
+MeanPrecision <- matrix(,1,maxclass)
+MeanRecall <- matrix(,1,maxclass)
+MeanF1 <- matrix(,1,maxclass)
+for (CV in 0:(KofCV-1)){
+    
 #Splitting data into classes
 
 trainM <- list()
@@ -64,21 +76,27 @@ DiagTrcolmean <- MM[1:(nc-1)]
 Featmean <- MM[1:(nc-1)]
 FeatLength <- MM[1:1]
 
-
 #######################
 # PHCA Implementation #
 #######################
+
+
 for (class in numclasses)
 { 
-    M <- filter(XY, XY[,nc] == class)
-    print(M)
+    M <- filter(XY, XY[,nc] == class);
+    #print(M);
     
-    # Splitting the dataset into the Training set and Test set 
-    #install.packages('caTools')
-    set.seed(7)
-    split = sample.split(M[,nc], SplitRatio = SR)
-    training_set = subset(M, split == TRUE)
-    test_set = subset(M, split == FALSE) 
+    
+    for (k in 1:nrow(M))
+    {
+     M[k,nc+1] <- k%%KofCV;
+     }
+    colnames(M)[nc+1] <- c("CVlabel")
+    
+    
+    test_set = subset(M, CVlabel == CV)[-(nc+1)]
+    training_set = subset(M, CVlabel != CV)[-(nc+1)]
+
     
     # Optional Feature Scaling, depending on dataset
     #training_set[-nc] = scale(training_set[-nc]) 
@@ -92,7 +110,7 @@ for (class in numclasses)
     nctr[class] <- ncol(training_set)
     nrte[class] <- nrow(test_set)
     ncte[class] <- ncol(test_set)
-    print(c(nrtr[class], nctr[class], nrte[class], ncte[class]))
+    #print(c(nrtr[class], nctr[class], nrte[class], ncte[class]))
     
     ##################################
     # PH COMPUTATION of TRAINING SETS
@@ -172,23 +190,6 @@ Classifying <- function(M5){
         DD[j] <- -EE[j,1] + EE[j,3] - FF[j,1] + FF[j,3] + cc + CC[j]
     }
     resulta <- which( DD == min(DD), arr.ind=FALSE)
-    
-    if (M5[,nc]!= resulta[1]) {
-        print(M5)
-        print("EE")
-        print(EE)
-        print("BB")
-        print(BB)
-        print("CC")
-        print(CC)
-        print("FF")
-        print(FF)
-        
-        print("DD")
-        print(DD)
-    }
-    
-    print(resulta[1])
     return(resulta[1])
 }
 
@@ -199,20 +200,64 @@ for (ii in numclasses)
     for (jj in 1:nrte[ii])
     {
         Count <- Count + 1
-        newdata[Count, nc+1] <- Classifying(testM[[ii]][jj,]) 
+        newdata[Count, nc+1] <- Classifying(testM[[ii]][jj,]) ;
     }
 }
 
 
-
-# Results of predicting/classifying the testing set 
+# Predicting the Test set results for PHCA
 y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
 
 # Making the Confusion Matrix 
 cm = table(newdata[, nc], y_pred)
 confusionMatrix(cm)
+CCM[[CV+1]] <- cm
 
+####
+# F1 score for multiclass classification problem
+####
+#y <- newdata[, nc] # factor of positive / negative cases
+#predictions <- y_pred # factor of predictions
 
+precision[(CV+1),] <- diag(cm) / colSums(cm)
+recall[(CV+1),] <- diag(cm) / rowSums(cm)
+}
+
+f1 <- ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+
+for (k in 1:maxclass){
+    MeanPrecision[,k] <- mean(precision[,k])
+}
+for (k in 1:maxclass){
+    MeanRecall[,k] <- mean(recall[,k])
+}
+for (k in 1:maxclass){
+    MeanF1[,k] <- mean(f1[,k])
+}
+
+###
+# F1-score for binary classification problem
+###
+err_metric=function(CM)
+{
+    TN =CM[1,1]
+    TP =CM[2,2]
+    FP =CM[1,2]
+    FN =CM[2,1]
+    precision =(TP)/(TP+FP)
+    recall_score =(FP)/(FP+TN)
+    
+    f1_score=2*((precision*recall_score)/(precision+recall_score))
+    accuracy_model  =(TP+TN)/(TP+TN+FP+FN)
+    False_positive_rate =(FP)/(FP+TN)
+    False_negative_rate =(FN)/(FN+TP)
+    print(paste("Precision value of the model: ",round(precision,2)))
+    print(paste("Accuracy of the model: ",round(accuracy_model,2)))
+    print(paste("Recall value of the model: ",round(recall_score,2)))
+    print(paste("False Positive rate of the model: ",round(False_positive_rate,2)))
+    print(paste("False Negative rate of the model: ",round(False_negative_rate,2)))
+    print(paste("f1 score of the model: ",round(f1_score,2)))
+}
 
 ###################################
 # OTHER CLASSIFICATION ALGORITHMS #
@@ -314,30 +359,36 @@ print(fit.lda)
 
 # estimate skill of LDA on the validation dataset
 predictions <- predict(fit.lda, validation)
-confusionMatrix(predictions, validation$Species)
+#confusionMatrix(predictions, validation$Species)
+confusionMatrix(predictions, validation$Species)[4]
 
 
 # estimate skill of CART on the validation dataset
 predictions <- predict(fit.cart, validation)
-confusionMatrix(predictions, validation$Species)
+#confusionMatrix(predictions, validation$Species)
+confusionMatrix(predictions, validation$Species)[4]
 
 # estimate skill of KNN on the validation dataset
 predictions <- predict(fit.knn, validation)
-confusionMatrix(predictions, validation$Species)
+#confusionMatrix(predictions, validation$Species)
+confusionMatrix(predictions, validation$Species)[4]
 
 
 # estimate skill of SVM on the validation dataset
 predictions <- predict(fit.svm, validation)
-confusionMatrix(predictions, validation$Species)
+#confusionMatrix(predictions, validation$Species)
+confusionMatrix(predictions, validation$Species)[4]
 
 
 # estimate skill of RF on the validation dataset
 predictions <- predict(fit.rf, validation)
-confusionMatrix(predictions, validation$Species)
+#confusionMatrix(predictions, validation$Species)
+confusionMatrix(predictions, validation$Species)[4]
 
-# Predicting the Test set results for PHCA
-y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
 
-# Making the Confusion Matrix 
-cm = table(newdata[, nc], y_pred)
-confusionMatrix(cm)
+print(paste("Mean Recall for class", classes,round(100*MeanRecall,2), "%"), sep="")
+print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
+print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
+print(MeanPrecision)
+print(MeanRecall)
+print(MeanF1)
