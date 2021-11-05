@@ -6,6 +6,7 @@ library(dplyr)
 library(dplyr)
 library(caTools)
 library(caret)
+library("RColorBrewer")
 
 #General Parameters
 
@@ -38,15 +39,7 @@ maxclass <- max(numclasses)
 len <- length(numclasses)
 
 KofCV <- 5
-CVnum <- matrix(0:KofCV-1, nrow=1, byrow=FALSE)
-CCM <- list()
-
-precision <- matrix(,KofCV,maxclass)
-recall <- matrix(,KofCV,maxclass)
-f1 <- matrix(,KofCV,maxclass)
-MeanPrecision <- matrix(,1,maxclass)
-MeanRecall <- matrix(,1,maxclass)
-MeanF1 <- matrix(,1,maxclass)
+ConM <- matrix(0,maxclass,maxclass)
 for (CV in 0:(KofCV-1)){
     
 #Splitting data into classes
@@ -206,57 +199,15 @@ for (ii in numclasses)
 
 
 # Predicting the Test set results for PHCA
+y_label = newdata[,nc]
 y_pred = newdata[,nc+1] #predict(classifier, newdata = test_set[-nc])
 
 # Making the Confusion Matrix 
-cm = table(newdata[, nc], y_pred)
-confusionMatrix(cm)
-CCM[[CV+1]] <- cm
+cm = table(y_label, y_pred)
 
-####
-# F1 score for multiclass classification problem
-####
-#y <- newdata[, nc] # factor of positive / negative cases
-#predictions <- y_pred # factor of predictions
+#For Confusion Matrix with Cross-validation
+ConM <- ConM + cm
 
-precision[(CV+1),] <- diag(cm) / colSums(cm)
-recall[(CV+1),] <- diag(cm) / rowSums(cm)
-}
-
-f1 <- ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
-
-for (k in 1:maxclass){
-    MeanPrecision[,k] <- mean(precision[,k])
-}
-for (k in 1:maxclass){
-    MeanRecall[,k] <- mean(recall[,k])
-}
-for (k in 1:maxclass){
-    MeanF1[,k] <- mean(f1[,k])
-}
-
-###
-# F1-score for binary classification problem
-###
-err_metric=function(CM)
-{
-    TN =CM[1,1]
-    TP =CM[2,2]
-    FP =CM[1,2]
-    FN =CM[2,1]
-    precision =(TP)/(TP+FP)
-    recall_score =(FP)/(FP+TN)
-    
-    f1_score=2*((precision*recall_score)/(precision+recall_score))
-    accuracy_model  =(TP+TN)/(TP+TN+FP+FN)
-    False_positive_rate =(FP)/(FP+TN)
-    False_negative_rate =(FN)/(FN+TP)
-    print(paste("Precision value of the model: ",round(precision,2)))
-    print(paste("Accuracy of the model: ",round(accuracy_model,2)))
-    print(paste("Recall value of the model: ",round(recall_score,2)))
-    print(paste("False Positive rate of the model: ",round(False_positive_rate,2)))
-    print(paste("False Negative rate of the model: ",round(False_negative_rate,2)))
-    print(paste("f1 score of the model: ",round(f1_score,2)))
 }
 
 ###################################
@@ -357,38 +308,177 @@ dotplot(results)
 # summarize Best Model
 print(fit.lda)
 
+############################################################
+## Generate the performance measures for each classifier. ##
+############################################################
+
 # estimate skill of LDA on the validation dataset
 predictions <- predict(fit.lda, validation)
-#confusionMatrix(predictions, validation$Species)
-confusionMatrix(predictions, validation$Species)[4]
+confusionMatrix(predictions, factor(validation[,nc]))[4]
 
+perflda <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- perflda[,,1]
+perf_spec <- perflda[,,2]
+perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- perfacc
+perf_prec <- perflda[,,5]
+perf_rec <- perflda[,,6]
+perf_f1 <- perflda[,,7]
 
 # estimate skill of CART on the validation dataset
 predictions <- predict(fit.cart, validation)
-#confusionMatrix(predictions, validation$Species)
-confusionMatrix(predictions, validation$Species)[4]
+confusionMatrix(predictions, factor(validation[,nc]))[4]
+
+perfcart <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- rbind(perf_sen, perfcart[,,1])
+perf_spec <- rbind(perf_spec, perfcart[,,2])
+perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- rbind(perf_acc, perfacc) 
+perf_prec <- rbind(perf_prec, perfcart[,,5])
+perf_rec <- rbind(perf_rec, perfcart[,,6])
+perf_f1 <- rbind(perf_f1, perfcart[,,7])
 
 # estimate skill of KNN on the validation dataset
 predictions <- predict(fit.knn, validation)
-#confusionMatrix(predictions, validation$Species)
-confusionMatrix(predictions, validation$Species)[4]
+confusionMatrix(predictions, factor(validation[,nc]))[4]
 
+perfknn <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- rbind(perf_sen, perfknn[,,1])
+perf_spec <- rbind(perf_spec, perfknn[,,2])
+perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- rbind(perf_acc, perfacc) 
+perf_prec <- rbind(perf_prec, perfknn[,,5])
+perf_rec <- rbind(perf_rec, perfknn[,,6])
+perf_f1 <- rbind(perf_f1, perfknn[,,7])
 
 # estimate skill of SVM on the validation dataset
 predictions <- predict(fit.svm, validation)
-#confusionMatrix(predictions, validation$Species)
-confusionMatrix(predictions, validation$Species)[4]
+confusionMatrix(predictions, factor(validation[,nc]))[4]
 
+perfsvm <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- rbind(perf_sen, perfsvm[,,1])
+perf_spec <- rbind(perf_spec, perfsvm[,,2])
+perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- rbind(perf_acc, perfacc) 
+perf_prec <- rbind(perf_prec, perfsvm[,,5])
+perf_rec <- rbind(perf_rec, perfsvm[,,6])
+perf_f1 <- rbind(perf_f1, perfsvm[,,7])
 
 # estimate skill of RF on the validation dataset
 predictions <- predict(fit.rf, validation)
-#confusionMatrix(predictions, validation$Species)
-confusionMatrix(predictions, validation$Species)[4]
+confusionMatrix(predictions, factor(validation[,nc]))[4]
+
+perfrf <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- rbind(perf_sen, perfrf[,,1])
+perf_spec <- rbind(perf_spec, perfrf[,,2])
+perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- rbind(perf_acc, perfacc) 
+perf_prec <- rbind(perf_prec, perfrf[,,5])
+perf_rec <- rbind(perf_rec, perfrf[,,6])
+perf_f1 <- rbind(perf_f1, perfrf[,,7])
 
 
-print(paste("Mean Recall for class", classes,round(100*MeanRecall,2), "%"), sep="")
-print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
-print(paste("Mean F1-score for class", classes,round(100*MeanF1,2), "%"), sep="")
-print(MeanPrecision)
-print(MeanRecall)
-print(MeanF1)
+#######################
+## Result Using PHCA ##
+#######################
+
+confusionMatrix(ConM)
+confusionMatrix(ConM)[2]
+confusionMatrix(ConM)[4]
+
+perfphca <- array(as.numeric(unlist(confusionMatrix(ConM)[4])), 
+                dim=c(1, maxclass, 11))
+perf_sen <- rbind(perf_sen, perfphca[,,1])
+perf_spec <- rbind(perf_spec, perfphca[,,2])
+perfacc <- array(as.numeric(unlist(confusionMatrix(ConM)[3])), 
+                 dim=c(1, maxclass, 11))[1]
+perf_acc <- rbind(perf_acc, perfacc) 
+perf_prec <- rbind(perf_prec, perfphca[,,5])
+perf_rec <- rbind(perf_rec, perfphca[,,6])
+perf_f1 <- rbind(perf_f1, perfphca[,,7])
+
+######################################
+## Plotting of Performance Measures ##
+######################################
+
+# Plot for Sensitivity/Recall
+colnames(perf_sen)<- c("Class 1", "Class 2", "Class 3")
+par(mar=c(4,4,4,4))
+barplot(perf_sen,
+        #main = "Recall/Sensitivity per class per classifier",
+        xlab = "Classes",
+        ylab = "Recall/Sensitivity",
+        col = brewer.pal(n = 6, name = "RdBu"),
+        beside = TRUE
+)
+legend("bottomleft",
+       c("lda", "cart", "knn", "svm", "rf", "phca"),
+       fill = brewer.pal(n = 6, name = "RdBu")
+)
+
+# Plot for Specificity/Positive Predictive Value
+colnames(perf_spec)<- c("Class 1", "Class 2", "Class 3")
+par(mar=c(4,4,4,4))
+barplot(perf_spec,
+        #main = "Specificity per class per classifier",
+        xlab = "Classes",
+        ylab = "Specificity",
+        col = brewer.pal(n = 6, name = "RdBu"),
+        beside = TRUE
+)
+legend("bottomleft",
+       c("lda", "cart", "knn", "svm", "rf", "phca"),
+       fill = brewer.pal(n = 6, name = "RdBu")
+)
+
+#Plot for Precision
+colnames(perf_prec)<- c("Class 1", "Class 2", "Class 3")
+par(mar=c(4,4,4,4))
+barplot(perf_prec,
+        #main = "Precision per class per classifier",
+        xlab = "Classes",
+        ylab = "Precision",
+        col = brewer.pal(n = 6, name = "RdBu"),
+        beside = TRUE
+)
+legend("bottomleft",
+       c("lda", "cart", "knn", "svm", "rf", "phca"),
+       fill = brewer.pal(n = 6, name = "RdBu")
+)
+
+#Plot for F1 Score
+colnames(perf_f1)<- c("Class 1", "Class 2", "Class 3")
+par(mar=c(4,4,4,4))
+barplot(perf_f1,
+        #main = "F1 Score per class per classifier",
+        xlab = "Classes",
+        ylab = "F1 Score",
+        col = brewer.pal(n = 6, name = "RdBu"),
+        beside = TRUE
+)
+legend("bottomleft",
+       c("lda", "cart", "knn", "svm", "rf", "phca"),
+       fill = brewer.pal(n = 6, name = "RdBu")
+)
+
+#Plot for Accuracy
+par(mar=c(4,6,4,6))
+barplot(perf_acc,
+        #main = "Accuracy per classifier",
+        ylim = c(0,1.0),
+        xlab = "Classifiers",
+        ylab = "Accuracy",
+        col = brewer.pal(n = 6, name = "RdBu"),
+        names.arg = c("lda", "cart", "knn", "svm", "rf", "phca"),
+        beside = TRUE
+)
