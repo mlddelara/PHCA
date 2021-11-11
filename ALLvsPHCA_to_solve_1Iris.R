@@ -315,6 +315,8 @@ print(fit.lda)
 # estimate skill of LDA on the validation dataset
 predictions <- predict(fit.lda, validation)
 confusionMatrix(predictions, factor(validation[,nc]))[4]
+confusionMatrix(predictions,factor(validation[,nc]))[2]
+confusionMatrix(predictions,factor(validation[,nc]))[3]
 
 perflda <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
                 dim=c(1, maxclass, 11))
@@ -322,6 +324,7 @@ perf_sen <- perflda[,,1]
 perf_spec <- perflda[,,2]
 perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- perfacc
 perf_prec <- perflda[,,5]
 perf_rec <- perflda[,,6]
@@ -330,6 +333,8 @@ perf_f1 <- perflda[,,7]
 # estimate skill of CART on the validation dataset
 predictions <- predict(fit.cart, validation)
 confusionMatrix(predictions, factor(validation[,nc]))[4]
+confusionMatrix(predictions,factor(validation[,nc]))[2]
+confusionMatrix(predictions,factor(validation[,nc]))[3]
 
 perfcart <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
                 dim=c(1, maxclass, 11))
@@ -337,6 +342,7 @@ perf_sen <- rbind(perf_sen, perfcart[,,1])
 perf_spec <- rbind(perf_spec, perfcart[,,2])
 perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- rbind(perf_acc, perfacc) 
 perf_prec <- rbind(perf_prec, perfcart[,,5])
 perf_rec <- rbind(perf_rec, perfcart[,,6])
@@ -345,6 +351,8 @@ perf_f1 <- rbind(perf_f1, perfcart[,,7])
 # estimate skill of KNN on the validation dataset
 predictions <- predict(fit.knn, validation)
 confusionMatrix(predictions, factor(validation[,nc]))[4]
+confusionMatrix(predictions,factor(validation[,nc]))[2]
+confusionMatrix(predictions,factor(validation[,nc]))[3]
 
 perfknn <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
                 dim=c(1, maxclass, 11))
@@ -352,6 +360,7 @@ perf_sen <- rbind(perf_sen, perfknn[,,1])
 perf_spec <- rbind(perf_spec, perfknn[,,2])
 perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- rbind(perf_acc, perfacc) 
 perf_prec <- rbind(perf_prec, perfknn[,,5])
 perf_rec <- rbind(perf_rec, perfknn[,,6])
@@ -360,6 +369,8 @@ perf_f1 <- rbind(perf_f1, perfknn[,,7])
 # estimate skill of SVM on the validation dataset
 predictions <- predict(fit.svm, validation)
 confusionMatrix(predictions, factor(validation[,nc]))[4]
+confusionMatrix(predictions,factor(validation[,nc]))[2]
+confusionMatrix(predictions,factor(validation[,nc]))[3]
 
 perfsvm <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
                 dim=c(1, maxclass, 11))
@@ -367,6 +378,7 @@ perf_sen <- rbind(perf_sen, perfsvm[,,1])
 perf_spec <- rbind(perf_spec, perfsvm[,,2])
 perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- rbind(perf_acc, perfacc) 
 perf_prec <- rbind(perf_prec, perfsvm[,,5])
 perf_rec <- rbind(perf_rec, perfsvm[,,6])
@@ -375,6 +387,8 @@ perf_f1 <- rbind(perf_f1, perfsvm[,,7])
 # estimate skill of RF on the validation dataset
 predictions <- predict(fit.rf, validation)
 confusionMatrix(predictions, factor(validation[,nc]))[4]
+confusionMatrix(predictions,factor(validation[,nc]))[2]
+confusionMatrix(predictions,factor(validation[,nc]))[3]
 
 perfrf <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[4])), 
                 dim=c(1, maxclass, 11))
@@ -382,6 +396,7 @@ perf_sen <- rbind(perf_sen, perfrf[,,1])
 perf_spec <- rbind(perf_spec, perfrf[,,2])
 perfacc <- array(as.numeric(unlist(confusionMatrix(predictions,factor(validation[,nc]))[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- rbind(perf_acc, perfacc) 
 perf_prec <- rbind(perf_prec, perfrf[,,5])
 perf_rec <- rbind(perf_rec, perfrf[,,6])
@@ -393,8 +408,9 @@ perf_f1 <- rbind(perf_f1, perfrf[,,7])
 #######################
 
 confusionMatrix(ConM)
-confusionMatrix(ConM)[2]
 confusionMatrix(ConM)[4]
+confusionMatrix(ConM)[2]
+confusionMatrix(ConM)[3]
 
 perfphca <- array(as.numeric(unlist(confusionMatrix(ConM)[4])), 
                 dim=c(1, maxclass, 11))
@@ -402,6 +418,7 @@ perf_sen <- rbind(perf_sen, perfphca[,,1])
 perf_spec <- rbind(perf_spec, perfphca[,,2])
 perfacc <- array(as.numeric(unlist(confusionMatrix(ConM)[3])), 
                  dim=c(1, maxclass, 11))[1]
+perfacc
 perf_acc <- rbind(perf_acc, perfacc) 
 perf_prec <- rbind(perf_prec, perfphca[,,5])
 perf_rec <- rbind(perf_rec, perfphca[,,6])
