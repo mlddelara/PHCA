@@ -7,10 +7,13 @@ library(dplyr)
 library(caTools)
 library(caret)
 library("RColorBrewer")
+library(devtools)
+library(TDAmapper)
+library(igraph)
 
 #General Parameters
 
-maxd <- 1 #maxdimension
+maxd <- 0 #maxdimension
 maxsc <- 1 #maxscale
 SR <- 0.8 #Split Ratio Between training and testing
 
@@ -158,17 +161,17 @@ Classifying <- function(M5){
         DiagTe <- ripsDiag(X = MMtest, maxdimension = maxd, maxscale = maxsc,
                            library = "GUDHI", printProgress = FALSE)
         
-        BB[j] <- bottleneck(Diag1 = DiagTr[[j]][["diagram"]], 
-                            Diag2 = DiagTe[["diagram"]],
-                            dimension = 1)
-        CC[j] <- wasserstein(Diag1 = DiagTr[[j]][["diagram"]], Diag2 = DiagTe[["diagram"]],
-                             p = 2, dimension = 1)
-        EE[j,1] <- abs(sum(DiagTe[["diagram"]][,1]) - DiagTrcolSums[j,1])
+        #BB[j] <- bottleneck(Diag1 = DiagTr[[j]][["diagram"]], 
+        #Diag2 = DiagTe[["diagram"]],
+        #dimension = 1)
+        #CC[j] <- wasserstein(Diag1 = DiagTr[[j]][["diagram"]], Diag2 = DiagTe[["diagram"]],
+        #p = 2, dimension = 1)
+        #EE[j,1] <- abs(sum(DiagTe[["diagram"]][,1]) - DiagTrcolSums[j,1])
         EE[j,2] <- abs(sum(DiagTe[["diagram"]][,2]) - DiagTrcolSums[j,2])
         EE[j,3] <- abs(sum(DiagTe[["diagram"]][,3]) - DiagTrcolSums[j,3])
-        FF[j,1] <- abs(mean(DiagTe[["diagram"]][,1]) - DiagTrcolmean[j,1])
-        FF[j,2] <- abs(mean(DiagTe[["diagram"]][,2]) - DiagTrcolmean[j,2])
-        FF[j,3] <- abs(mean(DiagTe[["diagram"]][,3]) - DiagTrcolmean[j,3])
+        #FF[j,1] <- abs(mean(DiagTe[["diagram"]][,1]) - DiagTrcolmean[j,1])
+        #FF[j,2] <- abs(mean(DiagTe[["diagram"]][,2]) - DiagTrcolmean[j,2])
+        #FF[j,3] <- abs(mean(DiagTe[["diagram"]][,3]) - DiagTrcolmean[j,3])
         
         #Lengthsum <- 0
         #for (i in nrow(DiagTe[["diagram"]])) {
@@ -182,11 +185,10 @@ Classifying <- function(M5){
             cc <- cc +GG[j,kk]
         }
         
-        DD[j] <- -EE[j,1] + EE[j,3] - FF[j,1] + FF[j,3] + cc + CC[j]
+        #DD[j] <- -EE[j,1] + EE[j,3] - FF[j,1] + FF[j,3] + cc + CC[j]
+        DD[j] <- EE[j,3] - EE[j,2] #+ cc #+ CC[j]
     }
     resulta <- which( DD == min(DD), arr.ind=FALSE)
-    
-    print(resulta[1])
     return(resulta[1])
 }
 
@@ -259,7 +261,7 @@ x <- dataset[,1:(nc-1)]
 y <- dataset[,nc]
 
 # Run algorithms using 10-fold cross validation
-control <- trainControl(method="cv", number=5)
+control <- trainControl(method="cv", number=KofCV)
 metric <- "Accuracy"
 
 #VARIOUS MODELS
@@ -410,6 +412,27 @@ perf_prec <- rbind(perf_prec, perfphca[,,5])
 perf_rec <- rbind(perf_rec, perfphca[,,6])
 perf_f1 <- rbind(perf_f1, perfphca[,,7])
 
+dev.off()
+perf_prec
+perf_rec
+perf_acc
+perf_spec
+perf_f1
+
+
+PI <- cbind(perf_prec, perf_rec, perf_acc, perf_spec, perf_f1)
+M <- t(PI)
+colnames(M) <- c('LDA', 'CART', 'KNN', 'SVM', 'RF', 'PHCA')
+rownames(M) <- c('prec_class1', 'prec_class2', 'prec_class3', 
+                 'rec_class1', 'rec_class2', 'rec_class3', 'accuracy',
+                 'spec_class1', 'spec_class2', 'spec_class3', 
+                 'f1score_class1', 'f1score_class2', 'f1score_class3')
+library(DescTools)
+
+g <- factor(rep(1:6, each=13),
+            labels = c("LDA", "CART", "KNN", "SVM", "RF", "PHCA"))
+NemenyiTest(c(M), g)
+
 ######################################
 ## Plotting of Performance Measures ##
 ######################################
@@ -421,12 +444,12 @@ barplot(perf_sen,
         #main = "Recall/Sensitivity per class per classifier",
         xlab = "Classes",
         ylab = "Recall/Sensitivity",
-        col = brewer.pal(n = 6, name = "RdBu"),
+        col = brewer.pal(n = 6, name = "BuGn"),#RdBu
         beside = TRUE
-)
-legend("bottomleft",
-       c("lda", "cart", "knn", "svm", "rf", "phca"),
-       fill = brewer.pal(n = 6, name = "RdBu")
+        #)
+        #legend("bottomleft",
+        #c("lda", "cart", "knn", "svm", "rf", "phca"),
+        #fill = brewer.pal(n = 6, name = "BuGn")
 )
 
 # Plot for Specificity/Positive Predictive Value
@@ -436,12 +459,12 @@ barplot(perf_spec,
         #main = "Specificity per class per classifier",
         xlab = "Classes",
         ylab = "Specificity",
-        col = brewer.pal(n = 6, name = "RdBu"),
+        col = brewer.pal(n = 6, name = "BuGn"),
         beside = TRUE
-)
-legend("bottomleft",
-       c("lda", "cart", "knn", "svm", "rf", "phca"),
-       fill = brewer.pal(n = 6, name = "RdBu")
+        #)
+        #legend("bottomleft",
+        #      c("lda", "cart", "knn", "svm", "rf", "phca"),
+        #     fill = brewer.pal(n = 6, name = "BuGn")
 )
 
 #Plot for Precision
@@ -451,12 +474,12 @@ barplot(perf_prec,
         #main = "Precision per class per classifier",
         xlab = "Classes",
         ylab = "Precision",
-        col = brewer.pal(n = 6, name = "RdBu"),
+        col = brewer.pal(n = 6, name = "BuGn"),
         beside = TRUE
-)
-legend("bottomleft",
-       c("lda", "cart", "knn", "svm", "rf", "phca"),
-       fill = brewer.pal(n = 6, name = "RdBu")
+        #)
+        #legend("bottomleft",
+        #c("lda", "cart", "knn", "svm", "rf", "phca"),
+        #fill = brewer.pal(n = 6, name = "BuGn")
 )
 
 #Plot for F1 Score
@@ -466,12 +489,12 @@ barplot(perf_f1,
         #main = "F1 Score per class per classifier",
         xlab = "Classes",
         ylab = "F1 Score",
-        col = brewer.pal(n = 6, name = "RdBu"),
+        col = brewer.pal(n = 6, name = "BuGn"),
         beside = TRUE
-)
-legend("bottomleft",
-       c("lda", "cart", "knn", "svm", "rf", "phca"),
-       fill = brewer.pal(n = 6, name = "RdBu")
+        #)
+        #legend("bottomleft",
+        #c("lda", "cart", "knn", "svm", "rf", "phca"),
+        #fill = brewer.pal(n = 6, name = "BuGn")
 )
 
 #Plot for Accuracy
@@ -481,7 +504,13 @@ barplot(perf_acc,
         ylim = c(0,1.0),
         xlab = "Classifiers",
         ylab = "Accuracy",
-        col = brewer.pal(n = 6, name = "RdBu"),
-        names.arg = c("lda", "cart", "knn", "svm", "rf", "phca"),
+        col = brewer.pal(n = 6, name = "BuGn"),
+        names.arg = c("LDA", "CART", "KNN", "SVM", "RF", "PHCA"),
         beside = TRUE
 )
+#legend("topright", c("LDA", "CART", "KNN", "SVM", "RF", "PHCA"),
+#       fill = brewer.pal(n = 6, name = "BuGn"), inset = c(- 0.25, 0)
+#)
+
+M
+t(M)
